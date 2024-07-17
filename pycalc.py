@@ -1,6 +1,7 @@
 """PyCalc is a simple calculator built with Python and PyQt."""
 
 import sys
+from functools import partial
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -20,6 +21,9 @@ BUTTON_SIZE = 40
 
 class PyCalcWindow(QMainWindow):
     """PyCalc's main window (GUI or view)."""
+
+    # some type hints (optional but useful for IDEs)
+    buttonMap: dict[str, QPushButton]
 
     def __init__(self):
         super().__init__(parent=None)
@@ -85,11 +89,47 @@ def evaluateExpression(expr):
         result = ERROR_MSG
     return result
 
+class PyCalc:
+    """PyCalc's controller class."""
+
+    def __init__(self, model, view: PyCalcWindow):
+        self._evaluate = model
+        self._view = view
+        self._connectSignalsAndSlots()
+    
+    def _calculateResult(self):
+        expression = self._view.getDisplayText()
+        result = self._evaluate(expression)
+        self._view.setDisplayText(result)
+    
+    def _buildExpression(self, subExpression):
+        text = self._view.getDisplayText()
+        if text == ERROR_MSG:
+            # do nothing if already error (Press C to clear display)
+            return
+        
+        expression = text + subExpression
+        self._view.setDisplayText(expression)
+    
+    def _connectSignalsAndSlots(self):
+        for keySymbol, button in self._view.buttonMap.items():
+            if keySymbol not in {"=", "C"}:
+                button.clicked.connect(
+                    partial(self._buildExpression, keySymbol)
+                )
+        self._view.buttonMap["C"].clicked.connect(self._view.clearDisplay)
+        self._view.buttonMap["="].clicked.connect(self._calculateResult)
+
+        # returnPressed means "pressed the RETURN/ENTER key"
+        self._view.display.returnPressed.connect(self._calculateResult)
+        
+
 def main():
     """PyCalc's main function."""
     app = QApplication([])
     window = PyCalcWindow()
     window.show()
+    PyCalc(model=evaluateExpression, view=window)
     sys.exit(app.exec())
 
 if __name__ == "__main__":
